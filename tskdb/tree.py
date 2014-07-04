@@ -20,17 +20,17 @@ class Tree(collections.defaultdict):
         return True
 
 class Compare(Tree):
-    def strdates(self, x, y):
-        s = [''] * 2
+    def strdates(self, *args):
+        s = [''] * len(args)
         if hasattr(self, 'dates'):
             s = self.dates
-            s = ['{0}'.format(s[x]), '{0}'.format(s[y])]
+            s = ['{0}'.format(s[x]) for x in args]
         return ' '.join(['{0:12}'.format(x) for x in s])
-    def strmd5s(self, x, y):
-        s = [''] * 2
+    def strmd5s(self, *args):
+        s = [''] * len(args)
         if hasattr(self, 'md5s'):
             s = self.md5s
-            s = [s[x], s[y]]
+            s = [s[x] for x in args]
         return ' '.join([x[:4].ljust(4) for x in  s])
     def getcompare(self, field, x, y, comparefunc):
         def check(v):

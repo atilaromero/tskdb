@@ -43,11 +43,26 @@ def main():
     #        ,k
     return result
 
+def color(b):
+    if not b:
+        return '\033[93m{0}\033[0m'.format(b)
+    else:
+        return b
+
+def printtree(result,prefix=''):
+    for k in sorted(result.keys()):
+        yield ' '.join([result[k].strdates(0,1,2)\
+                        ,result[k].strmd5s(0,1,2)\
+                        ,prefix+k])
+        for i in printtree(result[k],prefix=prefix+k+'/'):
+            yield i
+
+
 def t1(result,x,y):
     for k in sorted(result.keys()):
-        print result[k].getdateequal(x,y)\
-            ,result[k].getmd5equal(x,y)\
-            ,result[k].getainb(x,y)\
+        print color(result[k].getdateequal(x,y))\
+            ,color(result[k].getmd5equal(x,y))\
+            ,color(result[k].getainb(x,y))\
             ,result[k].strdates(x,y)\
             ,result[k].strmd5s(x,y)\
             ,k
