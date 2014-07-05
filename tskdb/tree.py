@@ -1,16 +1,66 @@
 #!/usr/bin/env python
 import collections
 
-class Tree(collections.defaultdict):
-    def __init__(self):
-        self.default_factory = self.__class__
-    def __repr__(self):
-        return str(dict(self))
-    def position(self, dimensions):
-        if len(dimensions) > 1:
-            return Tree.position(self[dimensions[0]], dimensions[1:])
+class EmptyNode(dict):
+    def __init__(self, parent, key):
+        self.parent=parent
+        self.parentkey=key
+        if isinstance(parent, EmptyNode):
+            self.parenttype = parent.parenttype
         else:
-            return self[dimensions[0]]
+            self.parenttype = type(parent)
+    def __missing__(self, key):
+        return EmptyNode(self, key)
+    def __setitem__(self, key, value):
+        x = self.parenttype()
+        x[key] = value
+        self.parent[self.parentkey] = x
+    def __call__(self,value):
+        self.parent[self.parentkey] = value
+    def __getitem__(self,key):
+        if isinstance(key,list):
+            if len(key) > 1:
+                return self[key[0]][key[1:]]
+            else:
+                return self[key[0]]
+        else:
+            return super(EmptyNode,self).__getitem__(key)
+
+class Tree(dict):
+    """
+    >>> t = Tree()
+    >>> t
+    {}
+    >>> t[1][2][3]
+    {}
+    >>> t
+    {}
+    >>> t[1][2][3] = 4
+    >>> t[1][2][3]
+    4
+    >>> t
+    {1: {2: {3: 4}}}
+    >>> t = Tree()
+    >>> t['dir1/dir2/dir3'.split('/')](100)
+    >>> t
+    {'dir1': {'dir2': {'dir3': 100}}}
+    >>> type(t)
+    <class 'tree.Tree'>
+    >>> type(t['dir1']['dir2'])
+    <class 'tree.Tree'>
+    """
+    def __init__(self,*args,**kwargs):
+        super(Tree,self).__init__(*args,**kwargs)
+    def __missing__(self,key):
+        return EmptyNode(self,key)
+    def __getitem__(self,key):
+        if isinstance(key,list):
+            if len(key) > 1:
+                return self[key[0]][key[1:]]
+            else:
+                return self[key[0]]
+        else:
+            return super(Tree,self).__getitem__(key)
     def checkdeep(self, checkfunc):
         if not checkfunc(self):
             return False
@@ -18,6 +68,13 @@ class Tree(collections.defaultdict):
             if not v.checkdeep(checkfunc):
                 return False
         return True
+
+class DefaultDict(Tree,collections.defaultdict):
+    def __init__(self,*args,**kwargs):
+        super(DefaultDict,self).__init__(*args,**kwargs)
+        self.default_factory = self.__class__
+    def __repr__(self):
+        return str(dict(self))
 
 class Compare(Tree):
     def strdates(self, *args):
@@ -55,3 +112,7 @@ class Compare(Tree):
         return self.getcompare('dates', x, y, lambda a, b: a == b)
     def getdatebigger(self, x, y):
         return self.getcompare('dates', x, y, lambda a, b: a > b)
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
