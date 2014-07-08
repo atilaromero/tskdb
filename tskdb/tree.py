@@ -28,31 +28,42 @@ class EmptyNode(dict):
 
 class Tree(dict):
     """
-    >>> t = Tree()
-    >>> t
-    {}
-    >>> t[1][2][3]
-    {}
-    >>> t
-    {}
-    >>> t[1][2][3] = 4
-    >>> t[1][2][3]
-    4
-    >>> t
-    {1: {2: {3: 4}}}
-    >>> t = Tree()
-    >>> t['dir1/dir2/dir3'.split('/')](100)
-    >>> t
-    {'dir1': {'dir2': {'dir3': 100}}}
-    >>> type(t)
-    <class 'tree.Tree'>
-    >>> type(t['dir1']['dir2'])
-    <class 'tree.Tree'>
+    Create a tree:
+        >>> t = Tree()
+    
+    Put a value in a node:
+        >>> t[1][2][3] = 10
+    
+    Any unset node will return an EmptyNode, detached from the tree:
+        >>> t[4][5][6]       
+        {}
+    
+    See, no trace of t[4][5][6] in t:
+        >>> t
+        {1: {2: {3: 10}}}
+    
+    You may use t[[1,2,3]] instead of t[1][2][3]:
+        >>> t[[1,2,3]] == t[1][2][3]
+        True
+    
+    Another example:
+        >>> t = Tree()
+        >>> t['dir1/dir2/dir3'.split('/')] = 100
+        >>> t
+        {'dir1': {'dir2': {'dir3': 100}}}
     """
     def __init__(self,*args,**kwargs):
         super(Tree,self).__init__(*args,**kwargs)
     def __missing__(self,key):
         return EmptyNode(self,key)
+    def __setitem__(self,key,value):
+        if isinstance(key,list):
+            if len(key) > 1:
+                self[key[0]][key[1:]] = value
+            else:
+                self[key[0]] = value
+        else:
+            return super(Tree,self).__setitem__(key,value)
     def __getitem__(self,key):
         if isinstance(key,list):
             if len(key) > 1:
