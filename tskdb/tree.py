@@ -26,16 +26,35 @@ class LazyNode(dict):
         return LazyNode(self, key)
     def __setattr__(self, attr, value):
         """
-        When a value is set in a LazyNode
+        When a value is set in a LazyNode, set a real node in parent[key]
         """
-        x = self.parenttype()
-        x.attr = value
-        self.parent[self.parentkey] = x
+        if attr in ['parent','parentkey','parenttype']:
+            super(LazyNode,self).__setattr__(attr,value)
+        else:
+            x = self.parenttype()
+            x.__setattr__(attr,value)
+            self.parent[self.parentkey] = x
     def __setitem__(self, key, value):
         x = self.parenttype()
         x[key] = value
         self.parent[self.parentkey] = x
+    __setitem__.__doc__ = __setattr__.__doc__
     def __call__(self,*args,**kwargs):
+        """
+        When a LazyNode is called, it behave like a call to Tree(), creating a new instance.
+        This is only useful when subclassing Tree.
+        Example:
+        >>> class Position(Tree):
+                def __init__(self,x=None,y=None):
+                    self.x = x
+                    self.y = y
+                def __repr__(self):
+                    return 'x=%s,y=%s,%s'%(self.x,self.y,dict.__repr__(self))
+        >>> p = Position()
+        >>> p[1][2](10,20)
+        >>> p
+            x=None,y=None,{1: x=None,y=None,{2: x=10,y=20,{}}}
+        """
         x = self.parenttype(*args,**kwargs)
         self.parent[self.parentkey] = x
     def __getitem__(self,key):
