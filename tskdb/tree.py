@@ -8,15 +8,16 @@ class EmptyNode(dict):
         if isinstance(parent, EmptyNode):
             self.parenttype = parent.parenttype
         else:
-            self.parenttype = type(parent)
+            self.parenttype = parent.__class__
     def __missing__(self, key):
         return EmptyNode(self, key)
     def __setitem__(self, key, value):
         x = self.parenttype()
         x[key] = value
         self.parent[self.parentkey] = x
-    def __call__(self,value):
-        self.parent[self.parentkey] = value
+    def __call__(self,*args,**kwargs):
+        x = self.parenttype(*args,**kwargs)
+        self.parent[self.parentkey] = x
     def __getitem__(self,key):
         if isinstance(key,list):
             if len(key) > 1:
