@@ -1,16 +1,36 @@
 #!/usr/bin/env python
 import collections
 
-class EmptyNode(dict):
+class LazyNode(dict):
+    """
+    A missing index will create a LazyNode, which doesn't really
+    belongs to the tree until is set to some value. Then it 
+    creates a new Tree node in it's place.
+    """
     def __init__(self, parent, key):
+        """
+        parent[key] is a reference to where LazyNode should
+        store a value if it ever gets set.
+        """
         self.parent=parent
         self.parentkey=key
-        if isinstance(parent, EmptyNode):
+        if isinstance(parent, LazyNode):
             self.parenttype = parent.parenttype
         else:
             self.parenttype = parent.__class__
     def __missing__(self, key):
-        return EmptyNode(self, key)
+        """
+        LazyNode too can have lazy childs. If a child is set, 
+        it and all its parents will became real nodes.
+        """
+        return LazyNode(self, key)
+    def __setattr__(self, attr, value):
+        """
+        When a value is set in a LazyNode
+        """
+        x = self.parenttype()
+        x.attr = value
+        self.parent[self.parentkey] = x
     def __setitem__(self, key, value):
         x = self.parenttype()
         x[key] = value
@@ -25,7 +45,7 @@ class EmptyNode(dict):
             else:
                 return self[key[0]]
         else:
-            return super(EmptyNode,self).__getitem__(key)
+            return super(LazyNode,self).__getitem__(key)
 
 class Tree(dict):
     """
@@ -35,7 +55,7 @@ class Tree(dict):
     Put a value in a node:
         >>> t[1][2][3] = 10
     
-    Any unset node will return an EmptyNode, detached from the tree:
+    Any unset node will return an LazyNode, detached from the tree:
         >>> t[4][5][6]       
         {}
     
@@ -56,8 +76,14 @@ class Tree(dict):
     def __init__(self,*args,**kwargs):
         super(Tree,self).__init__(*args,**kwargs)
     def __missing__(self,key):
-        return EmptyNode(self,key)
+        return LazyNode(self,key)
+    __missing__.__doc__ = LazyNode.__doc__
     def __setitem__(self,key,value):
+        """
+        If a list is used as a key, each list item is treated 
+        like a dimension: 
+        [[1,2,3]] becomes [1][2][3]
+        """
         if isinstance(key,list):
             if len(key) > 1:
                 self[key[0]][key[1:]] = value
@@ -73,13 +99,7 @@ class Tree(dict):
                 return self[key[0]]
         else:
             return super(Tree,self).__getitem__(key)
-    def checkdeep(self, checkfunc):
-        if not checkfunc(self):
-            return False
-        for v in self.values():
-            if not v.checkdeep(checkfunc):
-                return False
-        return True
+    __getitem__.__doc__ = __setitem__.__doc__
 
 class DefaultDict(Tree,collections.defaultdict):
     def __init__(self,*args,**kwargs):
