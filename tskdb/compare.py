@@ -28,7 +28,7 @@ def main():
     data=collections.defaultdict(lambda:(['','',''],['','','']))
     for i,x in enumerate([A,B,C]):
         for mtime,path in x:
-            data[path][0][i]=datetime.date.fromtimestamp(mtime)
+            data[path][0][i]=datetime.datetime.fromtimestamp(mtime)
     for i,x in enumerate([A5,B5,C5]):
         for md5,path in x:
             data[path][1][i]=md5
