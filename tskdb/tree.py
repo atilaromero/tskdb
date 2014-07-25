@@ -45,15 +45,18 @@ class LazyNode(dict):
         This is only useful when subclassing Tree.
         Example:
         >>> class Position(Tree):
-                def __init__(self,x=None,y=None):
-                    self.x = x
-                    self.y = y
-                def __repr__(self):
-                    return 'x=%s,y=%s,%s'%(self.x,self.y,dict.__repr__(self))
+        ...     def __init__(self,x=None,y=None):
+        ...         self.x = x
+        ...         self.y = y
+        ...     def __repr__(self):
+        ...         return 'x=%s,y=%s,%s'%(self.x,self.y,dict.__repr__(self))
+
         >>> p = Position()
+
         >>> p[1][2](10,20)
+
         >>> p
-            x=None,y=None,{1: x=None,y=None,{2: x=10,y=20,{}}}
+        x=None,y=None,{1: x=None,y=None,{2: x=10,y=20,{}}}
         """
         x = self.parenttype(*args,**kwargs)
         self.parent[self.parentkey] = x
