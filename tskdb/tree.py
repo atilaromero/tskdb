@@ -107,9 +107,22 @@ class Tree(dict):
     """
     def __init__(self,*args,**kwargs):
         super(Tree,self).__init__(*args,**kwargs)
+        self.__frozen__ = False
+
+    def freeze(self):
+        """Disable automatic node creation"""
+        self.__frozen__ = True
+        
+        for k in self.keys():
+            self[k].freeze()
+
     def __missing__(self,key):
-        return LazyNode(self,key)
+        if self.__frozen__:
+            raise IndexError(key)
+        else:
+            return LazyNode(self,key)
     __missing__.__doc__ = LazyNode.__doc__
+
     def __setitem__(self,key,value):
         """
         If a list is used as a key, each list item is treated 
