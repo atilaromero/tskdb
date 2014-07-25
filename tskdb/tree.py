@@ -34,6 +34,16 @@ class LazyNode(dict):
             x = self.parenttype()
             x.__setattr__(attr,value)
             self.parent[self.parentkey] = x
+    def __getattr__(self, attr):
+        """
+        When a value is accessed in a LazyNode, create a real node in parent[key]
+        """
+        if attr in ['parent','parentkey','parenttype']:
+            return super(LazyNode,self).__getattr__(attr)
+        else:
+            x = self.parenttype()
+            self.parent[self.parentkey] = x
+            return getattr(x,attr)
     def __setitem__(self, key, value):
         x = self.parenttype()
         x[key] = value
