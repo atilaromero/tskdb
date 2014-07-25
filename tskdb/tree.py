@@ -61,7 +61,7 @@ class LazyNode(dict):
         x = self.parenttype(*args,**kwargs)
         self.parent[self.parentkey] = x
     def __getitem__(self,key):
-        if isinstance(key,list):
+        if isinstance(key,list): #convert [[1,2,3]] to [1][2][3] by recursion
             if len(key) > 1:
                 return self[key[0]][key[1:]]
             else:
