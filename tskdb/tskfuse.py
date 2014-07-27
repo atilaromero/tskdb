@@ -17,7 +17,8 @@ def report(fn):
         ))
         print "%s called" % (fc)
         ret = fn(*params,**kwargs)
-        #print "%s returned" % (fn.__name__)                                                                                                              print "%s returned %s" % (fn.__name__, ret)
+        #print "%s returned" % (fn.__name__)
+        print "%s returned %s" % (fn.__name__, ret)
         return ret
     return wrap
 
@@ -35,68 +36,104 @@ class TskFuse(Operations):
     def access(self, path, mode):
         return # no error, there is no access control here
 
-    #def chmod(self, path, mode):
-    #def chown(self, path, uid, gid):
-    #def create(self, path, mode, fi=None):
-    #def destroy(self,path):
-    #def flush(self, path, fh):
-    #def fsync(self, path, fdatasync, fh):
-    #def fsyncdir(self,path, datasync, fh):
+    def chmod(self, path, mode):
+        pass
 
+    def chown(self, path, uid, gid):
+        pass
+    def create(self, path, mode, fi=None):
+        pass
+    def destroy(self,path):
+        pass
+    def flush(self, path, fh):
+        pass
+    def fsync(self, path, fdatasync, fh):
+        pass
+    def fsyncdir(self,path, datasync, fh):
+        pass
+    
     def getattr(self, path, fh=None):
-        return self.tree.getattr(path)
+        try:
+            return self.tree[path].getattr()
+        except IndexError:
+            raise OSError(2)
 
-    #def getxattr(self, path, name, position=0):
-    #def init(self, path):
-    #def link(self, target, name):
-    #def listxattr(self, path):
-    #def mkdir(self, path, mode):
-    #def mknod(self, path, mode, dev):
+    def getxattr(self, path, name, position=0):
+        return super(TskFuse,self).getxattr(path, name, position)
 
+    def init(self, path):
+        pass
+    def link(self, target, name):
+        pass
+    def listxattr(self, path):
+        pass
+    def mkdir(self, path, mode):
+        pass
+    def mknod(self, path, mode, dev):
+        pass
+    
     def open(self, path, flags):
-        full_path = self._full_path(path)
-        return os.open(full_path, flags)
+        pass
+    #    full_path = self._full_path(path)
+    #    return os.open(full_path, flags)
 
     def opendir(self, path):
         return 0
 
     def read(self, path, length, offset, fh):
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.read(fh, length)
+        pass
+    #    os.lseek(fh, offset, os.SEEK_SET)
+    #    return os.read(fh, length)
 
     def readdir(self, path, fh):
-        return self.tree.readdir(path)
+        try:
+            return self.tree[path].readdir()
+        except IndexError:
+            raise OSError(2)
 
     def readlink(self, path):
-        pathname = os.readlink(self._full_path(path))
-        if pathname.startswith("/"):
-            # Path name is absolute, sanitize it.
-            return os.path.relpath(pathname, self.root)
-        else:
-            return pathname
+        pass
+    #    pathname = os.readlink(self._full_path(path))
+    #    if pathname.startswith("/"):
+    #        # Path name is absolute, sanitize it.
+    #        return os.path.relpath(pathname, self.root)
+    #    else:
+    #        return pathname
 
     def release(self, path, fh):
-        return os.close(fh)
+        pass
+    #    return os.close(fh)
 
-    #def releasedir(self, path, fh):
-    #def removexattr(self, path, name):
-    #def rename(self, old, new):
-    #def rmdir(self, path):
-    #def setxattr(self, path, name, value, options, position=0):
-
+    def releasedir(self, path, fh):
+        pass
+    def removexattr(self, path, name):
+        pass
+    def rename(self, old, new):
+        pass
+    def rmdir(self, path):
+        pass
+    def setxattr(self, path, name, value, options, position=0):
+        pass
+    
     def statfs(self, path):
-        full_path = self._full_path(path)
-        stv = os.statvfs(full_path)
-        return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
-            'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
-            'f_frsize', 'f_namemax'))
+        pass
+    #    full_path = self._full_path(path)
+    #    stv = os.statvfs(full_path)
+    #    return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
+    #        'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
+    #        'f_frsize', 'f_namemax'))
 
-    #def symlink(self, target, name):
-    #def truncate(self, path, length, fh=None):
-    #def unlink(self, path):
-    #def utimens(self, path, times=None):
-    #def write(self, path, buf, offset, fh):
-
+    def symlink(self, target, name):
+        pass
+    def truncate(self, path, length, fh=None):
+        pass
+    def unlink(self, path):
+        pass
+    def utimens(self, path, times=None):
+        pass
+    def write(self, path, buf, offset, fh):
+        pass
+    
 def main(root, mountpoint):
     FUSE(TskFuse(root), mountpoint, foreground=True)
 
