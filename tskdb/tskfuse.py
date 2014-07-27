@@ -44,31 +44,7 @@ class TskFuse(Operations):
     #def fsyncdir(self,path, datasync, fh):
 
     def getattr(self, path, fh=None):
-        #try:
-        x = self.tree.getpath(path)
-        #except 
-        #raise OSError(os.errno.ENOENT)
-        if isinstance(x,tsktree.TskTree):
-            ret = {'st_atime':0, 
-                   'st_ctime':0,
-                   'st_gid':0, 
-                   'st_mode':040777, 
-                   'st_mtime':0, 
-                   'st_nlink':2, 
-                   'st_size':0, 
-                   'st_uid':0,
-               }
-        else:
-            ret = {'st_atime':x.atime, 
-                   'st_ctime':x.ctime,
-                   'st_gid':x.gid, 
-                   'st_mode':x.mode|0777, 
-                   'st_mtime':x.mtime, 
-                   'st_nlink':2, 
-                   'st_size':x.size, 
-                   'st_uid':x.uid,
-               }
-        return ret
+        return self.tree.getattr(path)
 
     #def getxattr(self, path, name, position=0):
     #def init(self, path):
@@ -89,13 +65,7 @@ class TskFuse(Operations):
         return os.read(fh, length)
 
     def readdir(self, path, fh):
-        x = self.tree.getpath(path)
-        for r in x.keys():
-            print r
-            yield (r,None,0)
-        for r in range(len(x.files)):
-            print unicode(r)
-            yield (unicode(r),None,0)
+        return self.tree.readdir(path)
 
     def readlink(self, path):
         pathname = os.readlink(self._full_path(path))
