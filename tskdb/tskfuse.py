@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import os
 import sys
-import errno
 import plac
 import functools
-import random
+import threading
+import cmd
 
 from fuse import FUSE, FuseOSError, Operations
 import tsktree
@@ -149,8 +149,31 @@ class TskFuse(Operations):
     #def utimens(self, path, times=None):
     #def write(self, path, buf, offset, fh):
     
-def main(ddpath, dbpath, mountpoint):
-    FUSE(TskFuse(ddpath, dbpath), mountpoint, foreground=True)
+class Filters(cmd.Cmd):
+    def __init__(self, tskfuseobj):
+        cmd.Cmd.__init__(self)
+        self.tskfuseobj = tskfuseobj
+        self.__prompt__ = 'Filters'
 
+    def do_alloc(self, line):
+        def f(obj):
+            return obj.flags.alloc == 1
+        self.tskfuseobj.addfilter(f)
+    
+    def do_reset(self, line):
+        self.tskfuseobj.clearfilter()
+
+    def do_EOF(self, line):
+        sys.exit(0)
+
+def main(ddpath, dbpath, mountpoint):
+    import multiprocessing
+    mytskfuse = TskFuse(ddpath, dbpath)
+    t = multiprocessing.Process(target=FUSE, args=(mytskfuse, mountpoint), kwargs={'foreground':True})
+    t.daemon = True
+    t.start()
+    Filters(mytskfuse).cmdloop()
+    t.terminate()
+    
 if __name__ == '__main__':
     plac.call(main,sys.argv[1:])

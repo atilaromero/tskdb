@@ -25,6 +25,9 @@ def _buildattr(metadata=None):
                 'st_uid':0,
             }
         
+class Empty:
+    pass
+
 class TskTree(Tree):
     def __init__(self, dbpath=None):
         super(TskTree,self).__init__()
@@ -62,7 +65,34 @@ class TskTree(Tree):
                         if seq == fl.sequence: # use first good layout only
                             rec.layout.append((fsoffset+fl.byte_start,fl.byte_len))
                         seq += 1
-                self[splitedpath].metadata.append(rec)
+                # some meta_flags sugar
+                rec.flags = Empty()
+                rec.flags.alloc   = 1  & rec.meta_flags
+                rec.flags.unalloc = 2  & rec.meta_flags
+                rec.flags.used    = 4  & rec.meta_flags
+                rec.flags.unused  = 8  & rec.meta_flags
+                rec.flags.comp    = 16 & rec.meta_flags
+                rec.flags.orphan  = 32 & rec.meta_flags
+                # put file type in st_mode
+                types = [0000000, # undef
+                         0100000, # reg
+                         0040000, # dir
+                         0010000, # fifo
+                         0020000, # chr
+                         0060000, # blk
+                         0120000, # lnk
+                         0000000, # shad
+                         0140000, # sock
+                         0000000, # wht
+                         0000000, # virt
+                ]
+                if rec.mode and rec.meta_type:
+                    rec.mode |= types[rec.meta_type]
+                # choose metadata priority
+                if rec.flags.alloc: # undeleted goes first
+                    self[splitedpath].metadata.insert(0,rec)
+                else:
+                    self[splitedpath].metadata.append(rec)
             self.freeze()
 
     def __getitem__(self, key):
