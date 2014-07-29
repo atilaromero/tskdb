@@ -32,30 +32,60 @@ class TskTree(Tree):
         #load db
         if dbpath != None:
             meta, session = loaddbsqlite(dbpath)
-            tsk_files=meta.tbcls.tsk_files
-            for rec in session.query(tsk_files).all():
+            print ' loading tsk_fs_info'
+            self.fs_info = {}
+            for num,fs in enumerate(session.query(meta.tbcls.tsk_fs_info).all()):
+                self.fs_info[fs.obj_id] = (u'part{0}'.format(num), fs)
+            print ' loading tsk_file_layout'
+            layout = {}
+            for fl in session.query(meta.tbcls.tsk_file_layout).all():
+                if not layout.has_key(fl.obj_id):
+                    layout[fl.obj_id] = []
+                layout[fl.obj_id].append(fl)
+            print ' loading tsk_files'
+            for rec in session.query(meta.tbcls.tsk_files).all():
                 if rec.parent_path:
-                    fullpath = os.path.join(rec.parent_path,rec.name)
+                    fullpath = os.path.join(rec.parent_path, rec.name)
                 else:
-                    fullpath = rec.name
+                    fullpath = os.path.join(rec.name)
+                fsoffset = 0
+                if rec.fs_obj_id:
+                    fsnum = self.fs_info[rec.fs_obj_id][0]
+                    fsoffset = self.fs_info[rec.fs_obj_id][1].img_offset
+                    fullpath = os.path.join(fsnum, fullpath.lstrip('/'))
                 splitedpath = fullpath.rstrip('/').split('/')
+                # get this file layout
+                rec.layout = []
+                if layout.has_key(rec.obj_id):
+                    seq = 0
+                    for fl in layout[rec.obj_id]:
+                        if seq == fl.sequence: # use first good layout only
+                            rec.layout.append((fsoffset+fl.byte_start,fl.byte_len))
+                        seq += 1
                 self[splitedpath].metadata.append(rec)
             self.freeze()
 
     def __getitem__(self, key):
         if (isinstance(key,str) or isinstance(key,unicode)) and key.count('/') > 0:
-            parts = key.rstrip('/').split('/')
-            return super(TskTree,self).__getitem__(parts)
+            if key == '/':
+                return self
+            else:
+                if isinstance(key,str):
+                    key = key.decode('utf8')
+                parts = key.strip('/').split('/')
+                return super(TskTree,self).__getitem__(parts)
         else:
             return super(TskTree,self).__getitem__(key)
+
+    def pickmetadata(self):
+        return self.metadata[0] # picking first metadata found !!!!
 
     def getattr(self):
         if len(self.metadata) == 0:
                 # we dont have metadata for this node, fake one
             ret = _buildattr()
         else: # len(self.metadata) >= 1:
-            ret = _buildattr(self.metadata[0]) # picking first metadata found !!!!
-        print [ret,]
+            ret = _buildattr(self.pickmetadata())
         mustbedir = (len(self.keys()) > 0)
         if mustbedir:
             ret['st_mode'] |= 040000 # IFDIR
@@ -67,8 +97,24 @@ class TskTree(Tree):
     def readdir(self):
         if len(self.keys())>0:
             for r in self.keys():
-                yield (r, None, 0)
+                yield (r.encode('utf8'), None, 0)
         elif len(self.metadata)>1:
             for r in range(len(self.metadata)):
-                yield (unicode(r), None, 0)
+                yield (str(r), None, 0)
 
+    def read(self, length, offset):
+        skip = 0
+        layout = self.pickmetadata().layout
+        result = []
+        for o,l in layout:
+            if offset > l: # not there yet                            
+                offset = offset - l
+            else: # offset inside len                                 
+                if offset + length > l: # more chunks to read
+                    result.append([o+offset,l - offset])
+                    length = length - (l - offset)
+                    offset = 0
+                else: # last chunk
+                    result.append([o+offset, length])
+                    return result
+        return result

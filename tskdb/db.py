@@ -2,6 +2,7 @@
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.ext.declarative
+import sqlalchemy.schema
 
 Base = sqlalchemy.ext.declarative.declarative_base()
 
@@ -23,12 +24,12 @@ def loaddb(constr):
         pass
     meta.tbcls = Empty()
     meta.reflect(bind=engine)
-    for t in meta.tables.keys():
+    for tn in meta.tables.keys():
         cls = None
-        try:
-            cls = get_model(meta, t)
-        except:
-            pass
-        setattr(meta.tbcls, t, cls)
+        t = meta.tables[tn]
+        if not list(t.primary_key):
+            t.append_constraint(sqlalchemy.schema.PrimaryKeyConstraint(*list(t.columns)))
+        cls = get_model(meta, tn)
+        setattr(meta.tbcls, tn, cls)
     return meta, session
 

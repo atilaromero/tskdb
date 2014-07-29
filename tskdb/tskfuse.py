@@ -4,11 +4,13 @@ import sys
 import errno
 import plac
 import functools
+import random
 
 from fuse import FUSE, FuseOSError, Operations
 import tsktree
 
 def report(fn):
+    'decorator to print each call to fn'
     @functools.wraps(fn)
     def wrap(*params,**kwargs):
         fc = "%s(%s)" % (fn.__name__, ', '.join(
@@ -17,40 +19,50 @@ def report(fn):
         ))
         print "%s called" % (fc)
         ret = fn(*params,**kwargs)
-        #print "%s returned" % (fn.__name__)
-        print "%s returned %s" % (fn.__name__, ret)
+        print "%s returned" % (fn.__name__)
+        #print "%s returned %s" % (fn.__name__, ret)
         return ret
     return wrap
 
 def reportall(cls):
+    'decorator to print each call to any function in the decorated class'
     for name, val in vars(cls).items():
         if callable(val) and not name.startswith('_'):
             setattr(cls, name, report(val))
     return cls
 
-@reportall
+def _tryread(length, offset, fh):
+    fh.seek(offset,0)
+    chunk = fh.read(length)
+    pos = fh.tell()
+    if pos == offset+len(chunk): # ok
+        return chunk
+    else: # file is at wrong position, someone else is using it too
+        # try again
+        return _tryread(length, offset, fh)
+
+
+#@reportall # uncomment this to debug
 class TskFuse(Operations):
-    def __init__(self, dbpath):
+    def __init__(self, ddpath, dbpath):
+        print 'Loading db'
         self.tree = tsktree.TskTree(dbpath)
+        print 'Loaded'
+        self.image = open(ddpath,'r')
 
     def access(self, path, mode):
         return # no error, there is no access control here
 
-    def chmod(self, path, mode):
-        pass
+    #def chmod(self, path, mode):
+    #def chown(self, path, uid, gid):
+    #def create(self, path, mode, fi=None):
 
-    def chown(self, path, uid, gid):
-        pass
-    def create(self, path, mode, fi=None):
-        pass
     def destroy(self,path):
-        pass
-    def flush(self, path, fh):
-        pass
-    def fsync(self, path, fdatasync, fh):
-        pass
-    def fsyncdir(self,path, datasync, fh):
-        pass
+        self.image.close()
+
+    #def flush(self, path, fh):
+    #def fsync(self, path, fdatasync, fh):
+    #def fsyncdir(self,path, datasync, fh):
     
     def getattr(self, path, fh=None):
         try:
@@ -58,32 +70,41 @@ class TskFuse(Operations):
         except IndexError:
             raise OSError(2)
 
+    #TODO
     def getxattr(self, path, name, position=0):
         return super(TskFuse,self).getxattr(path, name, position)
 
     def init(self, path):
         pass
-    def link(self, target, name):
-        pass
+
+    #def link(self, target, name):
+
+    #TODO
     def listxattr(self, path):
         pass
-    def mkdir(self, path, mode):
-        pass
-    def mknod(self, path, mode, dev):
-        pass
+
+    #def mkdir(self, path, mode):
+    #def mknod(self, path, mode, dev):
     
     def open(self, path, flags):
-        pass
-    #    full_path = self._full_path(path)
-    #    return os.open(full_path, flags)
+        return 0
 
     def opendir(self, path):
         return 0
-
+        
     def read(self, path, length, offset, fh):
-        pass
-    #    os.lseek(fh, offset, os.SEEK_SET)
-    #    return os.read(fh, length)
+        try:
+            layout = self.tree[path].read(length, offset)
+            result = ''
+            for o,l in layout:
+                chunk = _tryread(l, o, self.image)
+                result += chunk
+                if not len(chunk) == l:
+                    assert len(chunk) < l
+                    return result
+            return result
+        except IndexError:
+            raise OSError(2)
 
     def readdir(self, path, fh):
         try:
@@ -91,6 +112,7 @@ class TskFuse(Operations):
         except IndexError:
             raise OSError(2)
 
+    #TODO
     def readlink(self, path):
         pass
     #    pathname = os.readlink(self._full_path(path))
@@ -106,36 +128,29 @@ class TskFuse(Operations):
 
     def releasedir(self, path, fh):
         pass
-    def removexattr(self, path, name):
-        pass
-    def rename(self, old, new):
-        pass
-    def rmdir(self, path):
-        pass
-    def setxattr(self, path, name, value, options, position=0):
-        pass
+
+    #def removexattr(self, path, name):
+    #def rename(self, old, new):
+    #def rmdir(self, path):
+    #def setxattr(self, path, name, value, options, position=0):
     
+    #TODO
     def statfs(self, path):
-        pass
+        pass 
     #    full_path = self._full_path(path)
     #    stv = os.statvfs(full_path)
     #    return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
     #        'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
     #        'f_frsize', 'f_namemax'))
 
-    def symlink(self, target, name):
-        pass
-    def truncate(self, path, length, fh=None):
-        pass
-    def unlink(self, path):
-        pass
-    def utimens(self, path, times=None):
-        pass
-    def write(self, path, buf, offset, fh):
-        pass
+    #def symlink(self, target, name):
+    #def truncate(self, path, length, fh=None):
+    #def unlink(self, path):
+    #def utimens(self, path, times=None):
+    #def write(self, path, buf, offset, fh):
     
-def main(root, mountpoint):
-    FUSE(TskFuse(root), mountpoint, foreground=True)
+def main(ddpath, dbpath, mountpoint):
+    FUSE(TskFuse(ddpath, dbpath), mountpoint, foreground=True)
 
 if __name__ == '__main__':
     plac.call(main,sys.argv[1:])
