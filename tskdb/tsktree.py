@@ -94,6 +94,20 @@ class TskTree(Tree):
                 else:
                     self[splitedpath].metadata.append(rec)
             self.freeze()
+            self.clearfilters()
+
+    def clearfilters(self):
+        self.visible = True
+        for k in self.keys():
+            self[k].clearfilters()
+
+    def setfilter(self, fn):
+        self.visible = fn(self)
+        for k in self.keys():
+            temp = self[k].setfilter(fn)
+            print k, temp
+            self.visible |= temp
+        return self.visible
 
     def __getitem__(self, key):
         if (isinstance(key,str) or isinstance(key,unicode)) and key.count('/') > 0:
@@ -108,7 +122,10 @@ class TskTree(Tree):
             return super(TskTree,self).__getitem__(key)
 
     def pickmetadata(self):
-        return self.metadata[0] # picking first metadata found !!!!
+        if len(self.metadata)>0:
+            return self.metadata[0] # picking first metadata found !!!!
+        else:
+            return None
 
     def getattr(self):
         if len(self.metadata) == 0:
@@ -123,14 +140,12 @@ class TskTree(Tree):
             ret['st_mode'] |= 0100000 # IFREG
         ret['st_mode'] |= 0777 # RWX for all
         return ret
-
+    
     def readdir(self):
-        if len(self.keys())>0:
-            for r in self.keys():
-                yield (r.encode('utf8'), None, 0)
-        elif len(self.metadata)>1:
-            for r in range(len(self.metadata)):
-                yield (str(r), None, 0)
+        for k in self.keys():
+            print k, self[k].visible
+            if self[k].visible:
+                yield (k.encode('utf8'), None, 0)
 
     def read(self, length, offset):
         skip = 0

@@ -42,7 +42,7 @@ def _tryread(length, offset, fh):
         return _tryread(length, offset, fh)
 
 
-#@reportall # uncomment this to debug
+@reportall # uncomment this to debug
 class TskFuse(Operations):
     def __init__(self, ddpath, dbpath):
         print 'Loading db'
@@ -150,18 +150,29 @@ class TskFuse(Operations):
     #def write(self, path, buf, offset, fh):
     
 class Filters(cmd.Cmd):
-    def __init__(self, tskfuseobj):
+    def __init__(self, tree):
         cmd.Cmd.__init__(self)
-        self.tskfuseobj = tskfuseobj
+        self.tree = tree
         self.__prompt__ = 'Filters'
 
     def do_alloc(self, line):
-        def f(obj):
-            return obj.flags.alloc == 1
-        self.tskfuseobj.addfilter(f)
+        def f(node):
+            m = node.pickmetadata()
+            if m:
+                return m.flags.alloc == 1
+            return False
+        self.tree.setfilter(f)
+    
+    def do_unalloc(self, line):
+        def f(node):
+            m = node.pickmetadata()
+            if m:
+                return m.flags.unalloc == 1
+            return False
+        self.tree.setfilter(f)
     
     def do_reset(self, line):
-        self.tskfuseobj.clearfilter()
+        self.tree.clearfilters()
 
     def do_EOF(self, line):
         sys.exit(0)
@@ -172,7 +183,7 @@ def main(ddpath, dbpath, mountpoint):
     t = multiprocessing.Process(target=FUSE, args=(mytskfuse, mountpoint), kwargs={'foreground':True})
     t.daemon = True
     t.start()
-    Filters(mytskfuse).cmdloop()
+    Filters(mytskfuse.tree).cmdloop()
     t.terminate()
     
 if __name__ == '__main__':
