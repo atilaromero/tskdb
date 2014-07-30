@@ -28,6 +28,69 @@ def _buildattr(metadata=None):
 class Empty:
     pass
 
+def _load_tsk_fs_info(session, meta):
+    fs_info = {}
+    for num,fs in enumerate(session.query(meta.tbcls.tsk_fs_info).all()):
+        fs_info[fs.obj_id] = (u'part{0}'.format(num), fs)
+    return fs_info
+
+def _load_tsk_file_layout(session, meta):
+    layout = {}
+    for fl in session.query(meta.tbcls.tsk_file_layout).all():
+        if not layout.has_key(fl.obj_id):
+            layout[fl.obj_id] = []
+        layout[fl.obj_id].append(fl)
+    return layout
+
+def _load_tsk_files(self, session, meta, fs_info, layout):
+    for _file in session.query(meta.tbcls.tsk_files).all():
+        if _file.parent_path:
+            fullpath = os.path.join(_file.parent_path, _file.name)
+        else:
+            fullpath = os.path.join(_file.name)
+        fsoffset = 0
+        if _file.fs_obj_id:
+            fsnum = fs_info[_file.fs_obj_id][0]
+            fsoffset = fs_info[_file.fs_obj_id][1].img_offset
+            fullpath = os.path.join(fsnum, fullpath.lstrip('/'))
+        splitedpath = fullpath.rstrip('/').split('/')
+        # get this file layout
+        _file.layout = []
+        if layout.has_key(_file.obj_id):
+            seq = 0
+            for fl in layout[_file.obj_id]:
+                if seq == fl.sequence: # use first good layout only
+                    _file.layout.append((fsoffset+fl.byte_start,fl.byte_len))
+                seq += 1
+        # some meta_flags sugar
+        _file.flags = Empty()
+        _file.flags.alloc   = 1  & _file.meta_flags
+        _file.flags.unalloc = 2  & _file.meta_flags
+        _file.flags.used    = 4  & _file.meta_flags
+        _file.flags.unused  = 8  & _file.meta_flags
+        _file.flags.comp    = 16 & _file.meta_flags
+        _file.flags.orphan  = 32 & _file.meta_flags
+        # put file type in st_mode
+        types = [0000000, # undef
+                 0100000, # reg
+                 0040000, # dir
+                 0010000, # fifo
+                 0020000, # chr
+                 0060000, # blk
+                 0120000, # lnk
+                 0000000, # shad
+                 0140000, # sock
+                 0000000, # wht
+                 0000000, # virt
+        ]
+        if _file.mode and _file.meta_type:
+            _file.mode |= types[_file.meta_type]
+        # choose metadata priority
+        if _file.flags.alloc: # undeleted goes first
+            self[splitedpath].metadata.insert(0,_file)
+        else:
+            self[splitedpath].metadata.append(_file)
+
 class TskTree(Tree):
     def __init__(self, dbpath=None):
         super(TskTree,self).__init__()
@@ -36,63 +99,11 @@ class TskTree(Tree):
         if dbpath != None:
             meta, session = loaddbsqlite(dbpath)
             print ' loading tsk_fs_info'
-            self.fs_info = {}
-            for num,fs in enumerate(session.query(meta.tbcls.tsk_fs_info).all()):
-                self.fs_info[fs.obj_id] = (u'part{0}'.format(num), fs)
+            fs_info = _load_tsk_fs_info(session, meta)
             print ' loading tsk_file_layout'
-            layout = {}
-            for fl in session.query(meta.tbcls.tsk_file_layout).all():
-                if not layout.has_key(fl.obj_id):
-                    layout[fl.obj_id] = []
-                layout[fl.obj_id].append(fl)
+            layout = _load_tsk_file_layout(session, meta)
             print ' loading tsk_files'
-            for rec in session.query(meta.tbcls.tsk_files).all():
-                if rec.parent_path:
-                    fullpath = os.path.join(rec.parent_path, rec.name)
-                else:
-                    fullpath = os.path.join(rec.name)
-                fsoffset = 0
-                if rec.fs_obj_id:
-                    fsnum = self.fs_info[rec.fs_obj_id][0]
-                    fsoffset = self.fs_info[rec.fs_obj_id][1].img_offset
-                    fullpath = os.path.join(fsnum, fullpath.lstrip('/'))
-                splitedpath = fullpath.rstrip('/').split('/')
-                # get this file layout
-                rec.layout = []
-                if layout.has_key(rec.obj_id):
-                    seq = 0
-                    for fl in layout[rec.obj_id]:
-                        if seq == fl.sequence: # use first good layout only
-                            rec.layout.append((fsoffset+fl.byte_start,fl.byte_len))
-                        seq += 1
-                # some meta_flags sugar
-                rec.flags = Empty()
-                rec.flags.alloc   = 1  & rec.meta_flags
-                rec.flags.unalloc = 2  & rec.meta_flags
-                rec.flags.used    = 4  & rec.meta_flags
-                rec.flags.unused  = 8  & rec.meta_flags
-                rec.flags.comp    = 16 & rec.meta_flags
-                rec.flags.orphan  = 32 & rec.meta_flags
-                # put file type in st_mode
-                types = [0000000, # undef
-                         0100000, # reg
-                         0040000, # dir
-                         0010000, # fifo
-                         0020000, # chr
-                         0060000, # blk
-                         0120000, # lnk
-                         0000000, # shad
-                         0140000, # sock
-                         0000000, # wht
-                         0000000, # virt
-                ]
-                if rec.mode and rec.meta_type:
-                    rec.mode |= types[rec.meta_type]
-                # choose metadata priority
-                if rec.flags.alloc: # undeleted goes first
-                    self[splitedpath].metadata.insert(0,rec)
-                else:
-                    self[splitedpath].metadata.append(rec)
+            _load_tsk_files(self, session, meta, fs_info, layout)
             self.freeze()
             self.clearfilters()
 
@@ -128,6 +139,10 @@ class TskTree(Tree):
             return None
 
     def getattr(self):
+        print id(self), self.visible
+        if not self.visible:
+            print 'rainsing'
+            raise OSError(2)
         if len(self.metadata) == 0:
                 # we dont have metadata for this node, fake one
             ret = _buildattr()

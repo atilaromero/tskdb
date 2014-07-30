@@ -136,12 +136,16 @@ class TskFuse(Operations):
     
     #TODO
     def statfs(self, path):
-        pass 
-    #    full_path = self._full_path(path)
-    #    stv = os.statvfs(full_path)
-    #    return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
-    #        'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
-    #        'f_frsize', 'f_namemax'))
+        return {'f_bavail':0, 
+                'f_bfree':0,
+                'f_blocks':0, 
+                'f_bsize':512, 
+                'f_favail':0, 
+                'f_ffree':0, 
+                'f_files':0, 
+                'f_flag':0,
+                'f_frsize':0, 
+                'f_namemax':512}
 
     #def symlink(self, target, name):
     #def truncate(self, path, length, fh=None):
@@ -156,6 +160,7 @@ class Filters(cmd.Cmd):
         self.__prompt__ = 'Filters'
 
     def do_alloc(self, line):
+        print id(self.tree)
         def f(node):
             m = node.pickmetadata()
             if m:
@@ -177,14 +182,15 @@ class Filters(cmd.Cmd):
     def do_EOF(self, line):
         sys.exit(0)
 
+
 def main(ddpath, dbpath, mountpoint):
-    import multiprocessing
+    import multiprocessing.dummy
     mytskfuse = TskFuse(ddpath, dbpath)
-    t = multiprocessing.Process(target=FUSE, args=(mytskfuse, mountpoint), kwargs={'foreground':True})
+    filters = Filters(mytskfuse.tree)
+    t = multiprocessing.dummy.Process(target=filters.cmdloop)
     t.daemon = True
     t.start()
-    Filters(mytskfuse.tree).cmdloop()
-    t.terminate()
-    
+    FUSE(mytskfuse, mountpoint, foreground=True)
+
 if __name__ == '__main__':
     plac.call(main,sys.argv[1:])
