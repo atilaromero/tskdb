@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import sys
 import plac
 import multiprocessing.dummy
@@ -6,27 +7,48 @@ import cmd
 import fuse
 import tskfuse
 
+def useflag(tree, flagname, value):
+    def f(metadata, pos):
+        if metadata:
+            return getattr(metadata.flags,flagname) == value
+        return False
+    tree.setfilter(f)
+
+def usemetaattr(tree, attrname, value):
+    def f(metadata, pos):
+        if metadata:
+            return getattr(metadata,attrname) == value
+        return False
+    tree.setfilter(f)
+
 class Filters(cmd.Cmd):
     def __init__(self, tree):
         cmd.Cmd.__init__(self)
         self.tree = tree
-        self.prompt = 'Filters'
+        self.prompt = 'Filters$ '
 
-    def do_alloc(self, line):
-        def f(node):
-            m = node.pickmetadata()
-            if m:
-                return m.flags.alloc == 1
-            return False
+    def do_metadata(self, line):
+        'metadata N : force to use metadata number N when showing files'
+        n = int(line)
+        def f(metadata, pos):
+            return pos == n
         self.tree.setfilter(f)
     
-    def do_unalloc(self, line):
-        def f(node):
-            m = node.pickmetadata()
-            if m:
-                return m.flags.unalloc == 1
+    def do_filenamecontains(self, line):
+        def f(metadata, pos):
+            if metadata:
+                return metadata.name and metadata.name.count(line) > 0
             return False
         self.tree.setfilter(f)
+
+    def do_alloc(self, line):
+        useflag(self.tree,'alloc',1)
+
+    def do_deleted(self, line):
+        useflag(self.tree, 'alloc',0)
+    
+    def do_unalloc(self, line):
+        useflag(self.tree, 'unalloc',1)
     
     def do_reset(self, line):
         self.tree.clearfilters()
@@ -42,6 +64,7 @@ def main(ddpath, dbpath, mountpoint):
     t.daemon = True
     t.start()
     fuse.FUSE(mytskfuse, mountpoint, foreground=True)
+    os.system('stty sane')
 
 if __name__ == '__main__':
     plac.call(main,sys.argv[1:])

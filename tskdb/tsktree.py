@@ -95,6 +95,7 @@ class TskTree(Tree):
     def __init__(self, dbpath=None):
         super(TskTree,self).__init__()
         self.metadata = []
+        self.currentmetadata = None
         #load db
         if dbpath != None:
             meta, session = loaddbsqlite(dbpath)
@@ -109,15 +110,19 @@ class TskTree(Tree):
 
     def clearfilters(self):
         self.visible = True
+        if self.metadata and len(self.metadata)>0:
+            self.currentmetadata = self.metadata[0]
         for k in self.keys():
             self[k].clearfilters()
 
     def setfilter(self, fn):
-        self.visible = fn(self)
+        self.visible = False
+        for i, m in reversed(list(enumerate(self.metadata))):
+            if fn(m, i):
+                self.visible = True
+                self.currentmetadata = m
         for k in self.keys():
-            temp = self[k].setfilter(fn)
-            print k, temp
-            self.visible |= temp
+            self.visible |= self[k].setfilter(fn)
         return self.visible
 
     def __getitem__(self, key):
@@ -132,22 +137,14 @@ class TskTree(Tree):
         else:
             return super(TskTree,self).__getitem__(key)
 
-    def pickmetadata(self):
-        if len(self.metadata)>0:
-            return self.metadata[0] # picking first metadata found !!!!
-        else:
-            return None
-
     def getattr(self):
-        print id(self), self.visible
         if not self.visible:
-            print 'rainsing'
             raise OSError(2)
         if len(self.metadata) == 0:
                 # we dont have metadata for this node, fake one
             ret = _buildattr()
         else: # len(self.metadata) >= 1:
-            ret = _buildattr(self.pickmetadata())
+            ret = _buildattr(self.currentmetadata)
         mustbedir = (len(self.keys()) > 0)
         if mustbedir:
             ret['st_mode'] |= 040000 # IFDIR
@@ -158,13 +155,12 @@ class TskTree(Tree):
     
     def readdir(self):
         for k in self.keys():
-            print k, self[k].visible
             if self[k].visible:
                 yield (k.encode('utf8'), None, 0)
 
     def read(self, length, offset):
         skip = 0
-        layout = self.pickmetadata().layout
+        layout = self.currentmetadata.layout
         result = []
         for o,l in layout:
             if offset > l: # not there yet                            

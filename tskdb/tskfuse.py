@@ -42,7 +42,7 @@ def _tryread(length, offset, fh):
         return _tryread(length, offset, fh)
 
 
-@reportall # uncomment this to debug
+#@reportall # uncomment this to debug
 class TskFuse(Operations):
     def __init__(self, ddpath, dbpath):
         print 'Loading db'
@@ -157,5 +157,5 @@ def main(ddpath, dbpath, mountpoint):
     mytskfuse = TskFuse(ddpath, dbpath)
     FUSE(mytskfuse, mountpoint, foreground=True)
 
-if __name__ == '__main__':
-    plac.call(main,sys.argv[1:])
+#if __name__ == '__main__':
+#    plac.call(main,sys.argv[1:])
