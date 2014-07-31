@@ -147,10 +147,10 @@ class TskTree(Tree):
             ret = _buildattr(self.currentmetadata)
         mustbedir = (len(self.keys()) > 0)
         if mustbedir:
-            ret['st_mode'] |= 040000 # IFDIR
+            ret['st_mode'] |= 040111 # IFDIR + XXX
         if (ret['st_mode'] & 0170000) == 0: # file type not set
             ret['st_mode'] |= 0100000 # IFREG
-        ret['st_mode'] |= 0777 # RWX for all
+        ret['st_mode'] |= 0666 # RW for all
         return ret
     
     def readdir(self):
