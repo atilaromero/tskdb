@@ -58,9 +58,15 @@ def _load_tsk_files(self, session, meta, fs_info, layout):
         _file.layout = []
         if layout.has_key(_file.obj_id):
             seq = 0
+            size_to_go = _file.size
             for fl in layout[_file.obj_id]:
                 if seq == fl.sequence: # use first good layout only
-                    _file.layout.append((fsoffset+fl.byte_start,fl.byte_len))
+                    if fl.byte_len > size_to_go:
+                        if size_to_go > 0:
+                            _file.layout.append((fsoffset+fl.byte_start,size_to_go))
+                    else:
+                        _file.layout.append((fsoffset+fl.byte_start,fl.byte_len))
+                    size_to_go = size_to_go - fl.byte_len
                 seq += 1
         # some meta_flags sugar
         _file.flags = Empty()
