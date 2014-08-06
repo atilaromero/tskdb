@@ -31,11 +31,14 @@ def reportall(cls):
             setattr(cls, name, report(val))
     return cls
 
+lock = threading.Lock()
+
 def _tryread(length, offset, fh):
-    fh.seek(offset,0)
-    chunk = fh.read(length)
-    pos = fh.tell()
-    if pos == offset+len(chunk): # ok
+    with lock:
+        fh.seek(offset,0)
+        chunk = fh.read(length)
+        pos = fh.tell()
+    if pos == (offset+len(chunk)): # ok
         return chunk
     else: # file is at wrong position, someone else is using it too
         # try again
