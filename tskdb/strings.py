@@ -59,7 +59,7 @@ def strings(encoding,srcpath,minimum=5,maximum=20):
     regs={}
     for x in encodings:
         regs[x]=re.compile('(?:%s){%s,%s}'%(regsexpr[x],minimum,maximum+1))
-    producer = multiprocessing.dummy.Process(target=_strings_producer, args=(srcpath, queue, blksize))
+    producer = multiprocessing.Process(target=_strings_producer, args=(srcpath, queue, blksize))
     producer.daemon = True
     producer.start()
     bl1=bl2=''
@@ -104,6 +104,7 @@ def strings(encoding,srcpath,minimum=5,maximum=20):
         for k in sorted(pos.keys()):
             if k<offset:
                 yield k,pos.pop(k)
+    producer.terminate()
 
 def printfound(position,text,files):
     line = u'\t'.join([unicode(position),unicode(text)]+files)
