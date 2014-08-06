@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import sys
 from db import loaddbsqlite
 from tree import Tree
 
@@ -40,6 +41,14 @@ def _load_tsk_file_layout(session, meta):
         if not layout.has_key(fl.obj_id):
             layout[fl.obj_id] = []
         layout[fl.obj_id].append(fl)
+    return layout
+
+def _disk_map(session, meta):
+    layout = {}
+    for fl in session.query(meta.tbcls.tsk_file_layout).all():
+        if not layout.has_key(fl.byte_start):
+            layout[fl.byte_start] = []
+        layout[fl.byte_start].append(fl)
     return layout
 
 def _load_tsk_files(self, session, meta, fs_info, layout):
