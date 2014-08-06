@@ -105,11 +105,11 @@ class TskTree(Tree):
         #load db
         if dbpath != None:
             meta, session = loaddbsqlite(dbpath)
-            print ' loading tsk_fs_info'
+            sys.stderr.write(' loading tsk_fs_info\n')
             fs_info = _load_tsk_fs_info(session, meta)
-            print ' loading tsk_file_layout'
+            sys.stderr.write(' loading tsk_file_layout\n')
             layout = _load_tsk_file_layout(session, meta)
-            print ' loading tsk_files'
+            sys.stderr.write(' loading tsk_files\n')
             _load_tsk_files(self, session, meta, fs_info, layout)
             self.freeze()
             self.clearfilters()
@@ -130,6 +130,21 @@ class TskTree(Tree):
         for k in self.keys():
             self.visible |= self[k].setfilter(fn)
         return self.visible
+
+    def findchildren(self, fn):
+        for i, m in enumerate(self.metadata):
+            if fn(m, i):
+                yield ''
+        for k in self.keys():
+            for child in self[k].findchildren(fn):
+                yield os.path.join(k, child).rstrip('/')
+
+    def runonchildren(self, fn):
+        for i, m in enumerate(self.metadata):
+            yield '', fn(m, i)
+        for k in self.keys():
+            for child, value in self[k].runonchildren(fn):
+                yield os.path.join(k, child).rstrip('/'), value
 
     def __getitem__(self, key):
         if (isinstance(key,str) or isinstance(key,unicode)) and key.count('/') > 0:

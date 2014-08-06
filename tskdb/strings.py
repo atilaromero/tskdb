@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 import sys
 import re
 import pdb
@@ -9,40 +8,44 @@ import collections
 import plac
 import tsktree
 import db
-
-grps=[u'abcdefghijklmnopqrstuvwxyz',
-      u'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-      u'0123456789',
-      u'ç',u'Ç',
-      u'áéíóú',u'ÁÉÍÓÚ',
-      u'àèìòù',u'ÀÈÌÒÙ',
-      u'âêîôû',u'ÂÊÎÔÛ',
-      u'ãõ',#ẽĩũ',
-      u'ÃÕ',#ẼĨŨ',
-      u'äëïöü',u'ÄËÏÖÜ',
-      #u' -.,/:"'+u"'",
-      ]
-chars=u''.join(grps)
-encodings=['latin1',
-           'utf8',
-           'utf_16_le','utf_16_be',
-           'utf_32_le','utf_32_be',]
-for c in chars:
-    assert len(c.encode('utf8'))==1 or c.encode('utf8')[0]=='\xc3'
-    assert '\x00'+c.encode('latin1')==c.encode('utf_16_be')
-    assert '\x00\x00\x00'+c.encode('latin1')==c.encode('utf_32_be')
-    assert c.encode('latin1')+'\x00'==c.encode('utf_16_le')
-    assert c.encode('latin1')+'\x00\x00\x00'==c.encode('utf_32_le')
-regsexpr={}
-regsexpr['utf8']='[a-zA-Z0-9]|\xc3[%s]'%(''.join([d[1] for d in [c.encode('utf8') for c in chars] if len(d)>1]))
-regsexpr['latin1']='[%s]'%(''.join([c.encode('latin1') for c in chars]))
-regsexpr['utf_16_be']='\x00[%s]'%(''.join([c.encode('latin1') for c in chars]))
-regsexpr['utf_32_be']='\x00\x00\x00[%s]'%(''.join([c.encode('latin1') for c in chars]))
-regsexpr['utf_16_le']='[%s]\x00'%(''.join([c.encode('latin1') for c in chars]))
-regsexpr['utf_32_le']='[%s]\x00\x00\x00'%(''.join([c.encode('latin1') for c in chars]))
-    
 import multiprocessing
-import multiprocessing.dummy
+
+def genregs(minimum,maximum):
+    grps=[u'abcdefghijklmnopqrstuvwxyz',
+          u'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+          u'0123456789',
+          u'ç',u'Ç',
+          u'áéíóú',u'ÁÉÍÓÚ',
+          u'àèìòù',u'ÀÈÌÒÙ',
+          u'âêîôû',u'ÂÊÎÔÛ',
+          u'ãõ',#ẽĩũ',
+          u'ÃÕ',#ẼĨŨ',
+          u'äëïöü',u'ÄËÏÖÜ',
+          #u' -.,/:"'+u"'",
+          ]
+    chars=u''.join(grps)
+    encodings=['latin1',
+               'utf8',
+               'utf_16_le','utf_16_be',
+               'utf_32_le','utf_32_be',]
+    for c in chars:
+        assert len(c.encode('utf8'))==1 or c.encode('utf8')[0]=='\xc3'
+        assert '\x00'+c.encode('latin1')==c.encode('utf_16_be')
+        assert '\x00\x00\x00'+c.encode('latin1')==c.encode('utf_32_be')
+        assert c.encode('latin1')+'\x00'==c.encode('utf_16_le')
+        assert c.encode('latin1')+'\x00\x00\x00'==c.encode('utf_32_le')
+    regsexpr={}
+    regsexpr['utf8']='[a-zA-Z0-9]|\xc3[%s]'%(''.join([d[1] for d in [c.encode('utf8') for c in chars] if len(d)>1]))
+    regsexpr['latin1']='[%s]'%(''.join([c.encode('latin1') for c in chars]))
+    regsexpr['utf_16_be']='\x00[%s]'%(''.join([c.encode('latin1') for c in chars]))
+    regsexpr['utf_32_be']='\x00\x00\x00[%s]'%(''.join([c.encode('latin1') for c in chars]))
+    regsexpr['utf_16_le']='[%s]\x00'%(''.join([c.encode('latin1') for c in chars]))
+    regsexpr['utf_32_le']='[%s]\x00\x00\x00'%(''.join([c.encode('latin1') for c in chars]))
+
+    regs={}
+    for x in encodings:
+        regs[x]=re.compile('(?:%s){%s,%s}'%(regsexpr[x],minimum,maximum+1))
+    return regs
 
 def _strings_producer(srcpath, queue, blksize):
     with open(srcpath) as f:
@@ -52,13 +55,12 @@ def _strings_producer(srcpath, queue, blksize):
             if len(chunk) == 0:
                 break
 
+#@profile
 def strings(encoding,srcpath,minimum=5,maximum=20):
     blksize = 1024**2 #1MB
-    queue = multiprocessing.Queue(40) #40MB
+    queue = multiprocessing.Queue(10) #10MB
     recall=21*5
-    regs={}
-    for x in encodings:
-        regs[x]=re.compile('(?:%s){%s,%s}'%(regsexpr[x],minimum,maximum+1))
+    regs = genregs(minimum,maximum)
     producer = multiprocessing.Process(target=_strings_producer, args=(srcpath, queue, blksize))
     producer.daemon = True
     producer.start()
@@ -74,7 +76,7 @@ def strings(encoding,srcpath,minimum=5,maximum=20):
         t2=datetime.datetime.now()
         deltat=t2-t1
         speed=(skip/1024**2)/deltat.total_seconds()
-        sys.stderr.write('    %4.2fMB\t%1.2fMB/s\r'%(offset/1024.0**2,speed))
+        sys.stderr.write('    %4.2fMB\t%1.2fMB/s\tbuffer:%iMB\r'%(offset/1024.0**2,speed,queue.qsize()))
         t1=t2
         offset+=skip
         bl1=bl1[skip:]+bl2
