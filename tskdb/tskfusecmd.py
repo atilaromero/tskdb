@@ -6,6 +6,7 @@ import multiprocessing.dummy
 import cmd
 import fuse
 import tskfuse
+import tokens
 
 def useflag(flagname, value):
     def f(metadata, pos):
